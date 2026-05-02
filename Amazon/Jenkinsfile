@@ -1,3 +1,60 @@
-// Added feature 1
-// added a new line 
-// this is the new feature
+pipeline {
+    agent any
+
+    triggers {
+        // Automatically checks for code changes every minute
+        pollSCM('* * * * *')
+    }
+
+    environment {
+        // You can define a global email variable here for easy updates
+        RECIPENT_EMAIL = 'blackhole.devops@gmail.com'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/tilakkalliguddi/maven-amazon.git', branch: 'main'
+            }
+        }
+
+        stage('Build & Compile') {
+            steps {
+                sh 'mvn clean compile'
+            }
+        }
+
+        stage('Unit Test') {
+            steps {
+                // If tests fail, the pipeline moves directly to the 'failure' post-block
+                sh 'mvn test'
+            }
+        }
+    }
+
+    post {
+        success {
+            emailext (
+                to: "${env.RECIPENT_EMAIL}",
+                subject: "SUCCESS: Job ${env.JOB_NAME} [Build #${env.BUILD_NUMBER}]",
+                body: """The build was successful!
+                         Job Name: ${env.JOB_NAME}
+                         Build Number: ${env.BUILD_NUMBER}
+                         Workspace: ${env.WORKSPACE}
+                         Check the application here: ${env.BUILD_URL}""",
+                attachLog: true
+            )
+        }
+        failure {
+            emailext (
+                to: "${env.RECIPENT_EMAIL}",
+                subject: "FAILURE: Job ${env.JOB_NAME} [Build #${env.BUILD_NUMBER}]",
+                body: """Attention! The build has failed.
+                         Job Name: ${env.JOB_NAME}
+                         Build Number: ${env.BUILD_NUMBER}
+                         Console Logs: ${env.BUILD_URL}console""",
+                attachLog: true
+            )
+        }
+    }
+}
