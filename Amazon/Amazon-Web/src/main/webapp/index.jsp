@@ -1,9 +1,7 @@
 <script language=javascript>
-function redirect(){
-  window.location = "https://www.amigosbusinesscorp.com";
-}
+<h1>This app is developed by Tilak kalliguddi</h1>
 </script>
 
-<body onload="redirect()">
+<body>
 
 </body>
