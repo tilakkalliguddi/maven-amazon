@@ -50,7 +50,7 @@ pipeline {
                     sh '''
                     ssh -o StrictHostKeyChecking=no \
                     azureuser@$VM_IP \
-                    "sudo mv /tmp/*.war /var/lib/tomcat10/webapps/Amazon.war"
+                    "sudo mv /tmp/*.war /var/lib/tomcat9/webapps/Amazon.war"
                     '''
                 }
             }
