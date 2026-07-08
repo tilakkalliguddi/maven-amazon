@@ -1,60 +1,69 @@
 pipeline {
+
     agent any
 
-    triggers {
-        // Automatically checks for code changes every minute
-        pollSCM('* * * * *')
-    }
-
     environment {
-        // You can define a global email variable here for easy updates
-        RECIPENT_EMAIL = 'blackhole.devops@gmail.com'
+        VM_IP = "104.215.149.151"
+        SSH_CREDENTIALS = "azure-vm-key"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/tilakkalliguddi/maven-amazon.git', branch: 'master'
+                checkout scm
             }
         }
 
-        stage('Build & Compile') {
+        stage('Build') {
             steps {
-                sh 'mvn clean compile'
+                dir('Amazon') {
+                    sh 'mvn clean package'
+                }
             }
         }
 
-        stage('Unit Test') {
+        stage('Test') {
             steps {
-                // If tests fail, the pipeline moves directly to the 'failure' post-block
-                sh 'mvn test'
+                dir('Amazon') {
+                    sh 'mvn test'
+                }
             }
         }
+
+        stage('Archive') {
+            steps {
+                archiveArtifacts artifacts: 'Amazon/Amazon-Web/target/*.war'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sshagent(credentials: ['azure-vm-key']) {
+
+                    sh '''
+                    scp -o StrictHostKeyChecking=no \
+                    Amazon/Amazon-Web/target/*.war \
+                    azureuser@$VM_IP:/tmp/
+                    '''
+
+                    sh '''
+                    ssh -o StrictHostKeyChecking=no \
+                    azureuser@$VM_IP \
+                    "sudo mv /tmp/*.war /var/lib/tomcat10/webapps/Amazon.war"
+                    '''
+                }
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+
+                sh "./scripts/health_check.sh $VM_IP"
+
+            }
+        }
+
     }
 
-    post {
-        success {
-            emailext (
-                to: "${env.RECIPENT_EMAIL}",
-                subject: "SUCCESS: Job ${env.JOB_NAME} [Build #${env.BUILD_NUMBER}]",
-                body: """The build was successful!
-                         Job Name: ${env.JOB_NAME}
-                         Build Number: ${env.BUILD_NUMBER}
-                         Workspace: ${env.WORKSPACE}
-                         Check the application here: ${env.BUILD_URL}""",
-                attachLog: true
-            )
-        }
-        failure {
-            emailext (
-                to: "${env.RECIPENT_EMAIL}",
-                subject: "FAILURE: Job ${env.JOB_NAME} [Build #${env.BUILD_NUMBER}]",
-                body: """Attention! The build has failed.
-                         Job Name: ${env.JOB_NAME}
-                         Build Number: ${env.BUILD_NUMBER}
-                         Console Logs: ${env.BUILD_URL}console""",
-                attachLog: true
-            )
-        }
-    }
 }
